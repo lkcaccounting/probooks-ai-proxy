@@ -1,29 +1,31 @@
-exports.handler = async (event) => {
-  // Handle preflight
+const https = require('https');
+
+exports.handler = async function(event, context) {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS, GET'
+  };
+
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-      },
-      body: ''
-    };
+    return { statusCode: 200, headers: corsHeaders, body: '' };
   }
 
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    return {
+      statusCode: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Use POST method.' })
+    };
   }
 
-  // API key lives here on the server — never in your HTML file
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     return {
-      statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: 'API key not configured. Add ANTHROPIC_API_KEY in Netlify environment variables.' })
+      statusCode: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'ANTHROPIC_API_KEY not set in Netlify environment variables.' })
     };
   }
 
@@ -35,24 +37,22 @@ exports.handler = async (event) => {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
-      body: event.body
+      body: event.body || '{}'
     });
 
     const data = await response.json();
 
     return {
-      statusCode: response.status,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
+      statusCode: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     };
-  } catch (error) {
+
+  } catch (err) {
     return {
-      statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: error.message })
+      statusCode: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: err.message })
     };
   }
 };
